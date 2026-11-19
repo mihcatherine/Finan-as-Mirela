@@ -1,68 +1,2038 @@
-const SUPABASE_URL='https://erwxchopsdbsxacwpvvw.supabase.co';
-const SUPABASE_ANON_KEY='sb_publishable_3lAdjBxhuQGwEAIsti0fvQ_rFq0Nwci';
-const sb=(typeof supabase!=='undefined')?supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
-const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const money=v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(v)||0);
-const pct=v=>`${Number(v||0).toFixed(2).replace('.',',')}%`;
-const today=()=>new Date().toISOString().slice(0,10);
-const monthKey=d=>String(d||'').slice(0,7);
-const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+'';
-let state={user:null,profile:{},settings:{salary:0,advance_pct:0,inss_pct:0,assist_pct:0,life:0,negocial:0,card_limit:0},transactions:[],goals:[],accounts:[],categories:[],recurring:[],installments:[]};
-const defaults=[['🍔','Alimentação',500],['🚗','Transporte',300],['🏠','Moradia',800],['📚','Estudos',250],['🎓','Educação',300],['🩺','Saúde',250],['💄','Beleza',200],['🎬','Lazer',200],['🛍️','Compras',300],['💳','Cartão',0],['💰','Investimento',0],['📱','Assinaturas',100],['🧾','Contas',500],['🐾','Pets',150],['🎁','Presentes',100],['💼','Trabalho',100],['✈️','Viagens',300],['⋯','Outros',200]];
-function toast(t){let e=document.createElement('div');e.className='toast';e.textContent=t;document.body.appendChild(e);setTimeout(()=>e.remove(),2800)}
-function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function showView(v){$$('.bottom button[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===v));render(v)}
-function modal(html){$('#modal').innerHTML=html;$('#modal').classList.remove('hidden')}
-function closeModal(){$('#modal').classList.add('hidden')}
-function splashOff(){setTimeout(()=>$('#splash')?.classList.add('hide'),500);setTimeout(()=>$('#splash')?.remove(),1050)}
-function auth(mode='login'){$('#authCard').innerHTML=mode==='login'?`<h1>Entrar</h1><p class="sub">Acesse sua vida financeira com clareza e tranquilidade.</p><div class="field"><label>E-mail</label><input id="email" class="input" type="email" placeholder="voce@email.com"></div><div class="field"><label>Senha</label><input id="password" class="input" type="password" placeholder="Sua senha"></div><button class="btn primary full" onclick="login()">Entrar</button><div class="switch">Ainda não tem conta? <button class="link" onclick="auth('signup')">Criar minha conta</button></div>`:`<h1>Criar conta</h1><p class="sub">Comece a construir uma vida financeira mais consciente.</p><div class="field"><label>Nome completo</label><input id="name" class="input" placeholder="Mirela Catherine de Oliveira"></div><div class="field"><label>E-mail</label><input id="email" class="input" type="email" placeholder="voce@email.com"></div><div class="field"><label>Senha</label><input id="password" class="input" type="password" placeholder="Mínimo de 6 caracteres"></div><button class="btn primary full" onclick="signup()">Criar minha conta</button><div class="switch">Já tem uma conta? <button class="link" onclick="auth('login')">Entrar</button></div>`}
-async function login(){let email=$('#email')?.value.trim(),password=$('#password')?.value;if(!email||!password)return toast('Preencha e-mail e senha.');if(!sb)return toast('Supabase não carregou. Atualize a página.');let {data,error}=await sb.auth.signInWithPassword({email,password});if(error)return toast(error.message);await start(data.user)}
-async function signup(){let name=$('#name')?.value.trim(),email=$('#email')?.value.trim(),password=$('#password')?.value;if(!name||!email||!password)return toast('Preencha todos os campos.');if(password.length<6)return toast('A senha precisa ter pelo menos 6 caracteres.');if(!sb)return toast('Supabase não carregou.');let {data,error}=await sb.auth.signUp({email,password,options:{data:{full_name:name}}});if(error)return toast(error.message);if(data.session){await start(data.user)}else{toast('Conta criada. Verifique o e-mail para confirmar.');auth('login')}}
-async function start(user){state.user=user;await load();$('#auth').classList.add('hidden');$('#shell').classList.remove('hidden');showView('home');splashOff()}
-async function logout(){if(sb)await sb.auth.signOut();state.user=null;$('#shell').classList.add('hidden');$('#auth').classList.remove('hidden');auth('login')}
-async function load(){if(!state.user)return;let [p,s,t,g,a,c,r,i]=await Promise.all([sb.from('profiles').select('*').eq('id',state.user.id).maybeSingle(),sb.from('settings').select('*').eq('user_id',state.user.id).maybeSingle(),sb.from('transactions').select('*').eq('user_id',state.user.id).order('tx_date',{ascending:false}),sb.from('goals').select('*').eq('user_id',state.user.id).order('created_at',{ascending:false}),sb.from('accounts').select('*').eq('user_id',state.user.id).order('created_at',{ascending:false}),sb.from('categories').select('*').eq('user_id',state.user.id).order('name'),sb.from('recurring_bills').select('*').eq('user_id',state.user.id).order('due_day'),sb.from('card_installments').select('*').eq('user_id',state.user.id).order('next_due')]);state.profile=p.data||{};state.settings={...state.settings,...(s.data||{})};state.transactions=t.data||[];state.goals=g.data||[];state.accounts=a.data||[];state.categories=c.data?.length?c.data:defaults.map(x=>({id:'d-'+x[1],icon:x[0],name:x[1],monthly_limit:x[2]}));state.recurring=r.data||[];state.installments=i.data||[]}
-function netSalary(){let s=state.settings;return Number(s.salary||0)*(1-(Number(s.inss_pct||0)+Number(s.assist_pct||0))/100)-Number(s.life||0)-Number(s.negocial||0)}
-function advance(){return netSalary()*Number(state.settings.advance_pct||0)/100}
-function remainder(){return netSalary()-advance()}
-function monthTx(){let m=new Date().toISOString().slice(0,7);return state.transactions.filter(x=>monthKey(x.tx_date)===m)}
-function totals(){let tx=monthTx();return {income:tx.filter(x=>x.type==='income').reduce((a,x)=>a+Number(x.amount||0),0),expense:tx.filter(x=>x.type==='expense').reduce((a,x)=>a+Number(x.amount||0),0),investment:tx.filter(x=>x.type==='investment').reduce((a,x)=>a+Number(x.amount||0),0)}}
-function home(){let t=totals(),available=netSalary()+t.income-t.expense-t.investment,goalPct=state.goals.length?state.goals.reduce((a,g)=>a+Math.min(100,Number(g.saved)/Math.max(1,Number(g.target))*100),0)/state.goals.length:0;return `<div class="page"><div class="greeting"><div><div class="eyebrow">Planejamento financeiro</div><div class="welcome">Olá, ${esc(state.profile.full_name||state.user?.user_metadata?.full_name||'Mirela')}.</div><div class="sub">Tenha clareza sobre cada decisão.</div></div><span class="pill">${new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</span></div><div class="balance"><small>Patrimônio disponível estimado</small><div class="value">${money(available)}</div><small>salário líquido de referência: ${money(netSalary())}</small></div><div class="grid"><div class="card"><div class="metric">Receitas</div><strong>${money(t.income)}</strong></div><div class="card"><div class="metric">Despesas</div><strong>${money(t.expense)}</strong></div><div class="card"><div class="metric">Investimentos</div><strong>${money(t.investment)}</strong></div><div class="card"><div class="metric">Metas</div><strong>${state.goals.length}</strong></div></div><div class="section quick"><div class="card"><div class="stat">Adiantamento</div><b>${money(advance())}</b><div class="note">${Number(state.settings.advance_pct||0)}% do líquido</div></div><div class="card"><div class="stat">5º dia útil</div><b>${money(remainder())}</b><div class="note">saldo do pagamento</div></div><div class="card"><div class="stat">Cartão</div><b>${money(cardUsed())}</b><div class="note">${money(cardAvailable())} disponível</div></div><div class="card"><div class="stat">Metas</div><b>${pct(goalPct)}</b><div class="note">progresso médio</div></div></div>${categoryAlerts()}<section class="section"><div class="section-head"><h3>Visão do mês</h3><span class="pill">${monthTx().length} lançamentos</span></div><div class="card"><div class="metric">Receitas <b style="float:right">${money(t.income)}</b></div><div class="progress"><i style="width:${Math.min(100,t.income?100:0)}%"></i></div><div class="metric" style="margin-top:14px">Despesas <b style="float:right">${money(t.expense)}</b></div><div class="progress"><i style="width:${Math.min(100,t.income?t.expense/t.income*100:0)}%"></i></div></div></section><section class="section"><div class="section-head"><h3>Últimos lançamentos</h3><button class="link" onclick="showView('transactions')">Ver todos</button></div><div class="card">${monthTx().slice(0,5).map(txRow).join('')||'<div class="empty">Ainda não há lançamentos neste mês.</div>'}</div></section></div>`}
-function txRow(x){let sign=x.type==='income'?'+':'-';return `<div class="transaction"><div class="tx-icon">${iconFor(x.category,x.type)}</div><div class="tx-main"><strong>${esc(x.description||x.category)}</strong><small>${esc(x.category)} · ${new Date(x.tx_date+'T12:00:00').toLocaleDateString('pt-BR')}</small></div><div class="amount ${x.type==='income'?'income':x.type==='expense'?'expense':''}">${sign} ${money(x.amount)}</div></div>`}
-function iconFor(cat,type){let c=state.categories.find(x=>x.name===cat);return c?.icon||(type==='income'?'↑':type==='investment'?'↗':'−')}
-function categoryAlerts(){let out='';for(let c of state.categories){if(!Number(c.monthly_limit))continue;let spent=monthTx().filter(x=>x.type==='expense'&&x.category===c.name).reduce((a,x)=>a+Number(x.amount),0),p=spent/c.monthly_limit;if(p>=.9)out+=`<div class="alert">${c.icon} <b>${esc(c.name)}</b>: ${money(spent)} de ${money(c.monthly_limit)} (${pct(p*100)}). ${p>=1?'Limite ultrapassado.':'Atenção ao limite.'}</div>`}return out}
-function transactions(){return `<div class="page"><div class="section-head"><div><div class="eyebrow">Movimentações</div><h2>Lançamentos</h2></div><button class="btn primary" onclick="openTx()">+ Novo</button></div><div class="card">${state.transactions.map(txRow).join('')||'<div class="empty">Nenhum lançamento cadastrado.</div>'}</div></div>`}
-function goals(){return `<div class="page"><div class="section-head"><div><div class="eyebrow">Construção de patrimônio</div><h2>Metas</h2></div><button class="btn primary" onclick="openGoal()">+ Nova</button></div>${state.goals.map(g=>{let p=Math.min(100,Number(g.saved)/Math.max(1,Number(g.target))*100);return `<div class="card goal"><div class="goal-top"><strong>${esc(g.name)}</strong><span>${money(g.saved)} / ${money(g.target)}</span></div><div class="progress"><i style="width:${p}%"></i></div><small>${pct(p)} concluído${g.due_date?' · até '+new Date(g.due_date+'T12:00:00').toLocaleDateString('pt-BR'):''}</small></div>`}).join('')||'<div class="card empty">Crie sua primeira meta financeira.</div>'}</div>`}
-function profile(){let n=state.profile.full_name||state.user?.user_metadata?.full_name||'Minha conta';return `<div class="page"><div class="profile-card card"><div class="avatar">${esc(n[0]?.toUpperCase()||'M')}</div><h2>${esc(n)}</h2><div class="sub">${esc(state.user?.email||'')}</div></div><div class="section"><div class="section-head"><h3>Configurações financeiras</h3><button class="btn primary" onclick="openSettings()">Editar</button></div><div class="card"><div class="settings-item"><span>Salário bruto</span><strong>${money(state.settings.salary)}</strong></div><div class="settings-item"><span>Adiantamento</span><strong>${pct(state.settings.advance_pct)}</strong></div><div class="settings-item"><span>INSS</span><strong>${pct(state.settings.inss_pct)}</strong></div><div class="settings-item"><span>Assistencial</span><strong>${pct(state.settings.assist_pct)}</strong></div><div class="settings-item"><span>Seguro de vida</span><strong>${money(state.settings.life)}</strong></div><div class="settings-item"><span>Negocial</span><strong>${money(state.settings.negocial)}</strong></div><div class="settings-item"><span>Líquido estimado</span><strong>${money(netSalary())}</strong></div></div></div><div class="section"><div class="section-head"><h3>Cartão</h3><button class="btn secondary" onclick="openCard()">Gerenciar</button></div><div class="card"><div class="metric">Limite</div><strong>${money(state.settings.card_limit)}</strong><div class="progress"><i style="width:${Math.min(100,state.settings.card_limit?cardUsed()/state.settings.card_limit*100:0)}%"></i></div><div class="note" style="margin-top:8px">${money(cardUsed())} usado · ${money(cardAvailable())} disponível</div></div></div><div class="section quick"><div class="card" onclick="openAccounts()"><div class="stat">Contas</div><b>${state.accounts.length}</b></div><div class="card" onclick="openCategories()"><div class="stat">Categorias</div><b>${state.categories.length}</b></div><div class="card" onclick="openRecurring()"><div class="stat">Recorrentes</div><b>${state.recurring.length}</b></div><div class="card" onclick="openAnalysis()"><div class="stat">Análise</div><b>Ver</b></div></div><div class="section"><div class="card"><div class="settings-item"><span>PIN local</span><button class="link" onclick="setPin()">Configurar</button></div><div class="settings-item"><span>Bloqueio automático</span><button class="link" onclick="lockApp()">Bloquear agora</button></div><div class="settings-item"><span>Modo escuro</span><button class="link" onclick="toggleDark()">Alternar</button></div><div class="settings-item"><span>Backup</span><button class="link" onclick="backup()">Exportar</button></div><div class="settings-item"><span>Importação</span><button class="link" onclick="importBackup()">Importar</button></div></div></div><button class="btn secondary full" onclick="logout()">Sair da conta</button></div>`}
-function cardUsed(){return state.transactions.filter(x=>x.type==='expense'&&x.category==='Cartão').reduce((a,x)=>a+Number(x.amount),0)+state.installments.reduce((a,x)=>a+Number(x.remaining_amount||0),0)}function cardAvailable(){return Math.max(0,Number(state.settings.card_limit||0)-cardUsed())}
-function openSettings(){let s=state.settings;modal(`<div class="sheet"><div class="sheet-head"><h2>Configurações financeiras</h2><button class="close" onclick="closeModal()">×</button></div><p class="sub">Esses valores alimentam automaticamente o cálculo do seu salário líquido e do pagamento do dia 20 e do 5º dia útil.</p><div class="row"><div class="field"><label>Salário bruto</label><input id="salary" class="input" type="number" step="0.01" value="${s.salary||0}"></div><div class="field"><label>Adiantamento (%)</label><input id="advance" class="input" type="number" step="0.01" value="${s.advance_pct||0}"></div></div><div class="row"><div class="field"><label>INSS (%)</label><input id="inss" class="input" type="number" step="0.01" value="${s.inss_pct||0}"></div><div class="field"><label>Assistencial (%)</label><input id="assist" class="input" type="number" step="0.01" value="${s.assist_pct||0}"></div></div><div class="row"><div class="field"><label>Seguro de vida (R$)</label><input id="life" class="input" type="number" step="0.01" value="${s.life||0}"></div><div class="field"><label>Negocial (R$)</label><input id="neg" class="input" type="number" step="0.01" value="${s.negocial||0}"></div></div><div class="field"><label>Limite do cartão (R$)</label><input id="limit" class="input" type="number" step="0.01" value="${s.card_limit||0}"></div><div class="card" style="margin-top:12px"><div class="metric">Líquido estimado</div><strong id="liveNet">${money(netSalary())}</strong><div class="note">adiantamento: ${money(advance())} · restante: ${money(remainder())}</div></div><button class="btn primary full" onclick="saveSettings()">Salvar configurações</button></div>`)}
-async function saveSettings(){let s={user_id:state.user.id,salary:Number($('#salary').value||0),advance_pct:Number($('#advance').value||0),inss_pct:Number($('#inss').value||0),assist_pct:Number($('#assist').value||0),life:Number($('#life').value||0),negocial:Number($('#neg').value||0),card_limit:Number($('#limit').value||0)};let {error}=await sb.from('settings').upsert(s,{onConflict:'user_id'});if(error)return toast(error.message);state.settings=s;closeModal();render('profile');toast('Configurações salvas.')}
-function openTx(){let cats=state.categories.map(c=>`<option value="${esc(c.name)}">${c.icon} ${esc(c.name)}</option>`).join('');modal(`<div class="sheet"><div class="sheet-head"><h2>Novo lançamento</h2><button class="close" onclick="closeModal()">×</button></div><div class="row"><div class="field"><label>Tipo</label><select id="tt" class="input"><option value="expense">Despesa</option><option value="income">Receita</option><option value="investment">Investimento</option><option value="transfer">Transferência</option></select></div><div class="field"><label>Data</label><input id="td" class="input" type="date" value="${today()}"></div></div><div class="row"><div class="field"><label>Valor</label><input id="ta" class="input" type="number" step="0.01" placeholder="0,00"></div><div class="field"><label>Categoria</label><select id="tc" class="input">${cats}</select></div></div><div class="field"><label>Conta</label><select id="tacc" class="input"><option value="">Sem conta vinculada</option>${state.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></div><div class="field"><label>Descrição</label><input id="txd" class="input" placeholder="Ex.: supermercado"></div><button class="btn primary full" onclick="saveTx()">Salvar lançamento</button></div>`)}
-async function saveTx(){let x={user_id:state.user.id,type:$('#tt').value,amount:Number($('#ta').value),tx_date:$('#td').value,category:$('#tc').value,description:$('#txd').value.trim(),account_id:$('#tacc').value||null};if(!x.amount)return toast('Informe um valor.');let {error}=await sb.from('transactions').insert(x);if(error)return toast(error.message);closeModal();await load();showView('transactions');toast('Lançamento salvo.')}
-function openGoal(){modal(`<div class="sheet"><div class="sheet-head"><h2>Nova meta</h2><button class="close" onclick="closeModal()">×</button></div><div class="field"><label>Nome da meta</label><input id="gn" class="input" placeholder="Ex.: viagem, reserva, notebook"></div><div class="row"><div class="field"><label>Objetivo (R$)</label><input id="gt" class="input" type="number" step="0.01"></div><div class="field"><label>Já guardado (R$)</label><input id="gs" class="input" type="number" step="0.01" value="0"></div></div><div class="field"><label>Prazo</label><input id="gd" class="input" type="date"></div><button class="btn primary full" onclick="saveGoal()">Criar meta</button></div>`)}
-async function saveGoal(){let g={user_id:state.user.id,name:$('#gn').value.trim(),target:Number($('#gt').value),saved:Number($('#gs').value||0),due_date:$('#gd').value||null};if(!g.name||!g.target)return toast('Preencha nome e objetivo.');let {error}=await sb.from('goals').insert(g);if(error)return toast(error.message);closeModal();await load();showView('goals');toast('Meta criada.')}
-function openAccounts(){modal(`<div class="sheet"><div class="sheet-head"><h2>Contas</h2><button class="close" onclick="closeModal()">×</button></div><div class="card">${state.accounts.map(a=>`<div class="settings-item"><span>${esc(a.name)}<small class="note"> ${money(a.balance)}</small></span></div>`).join('')||'<div class="empty">Nenhuma conta cadastrada.</div>'}</div><button class="btn primary full" onclick="newAccount()">+ Adicionar conta</button></div>`)}
-function newAccount(){modal(`<div class="sheet"><div class="sheet-head"><h2>Nova conta</h2><button class="close" onclick="closeModal()">×</button></div><div class="field"><label>Nome</label><input id="an" class="input" placeholder="Nubank, Santander, dinheiro..."></div><div class="field"><label>Saldo inicial</label><input id="ab" class="input" type="number" step="0.01" value="0"></div><button class="btn primary full" onclick="saveAccount()">Salvar conta</button></div>`)}
-async function saveAccount(){let a={user_id:state.user.id,name:$('#an').value.trim(),balance:Number($('#ab').value||0)};if(!a.name)return toast('Informe o nome.');let {error}=await sb.from('accounts').insert(a);if(error)return toast(error.message);closeModal();await load();openAccounts();toast('Conta adicionada.')}
-function openCategories(){modal(`<div class="sheet"><div class="sheet-head"><h2>Categorias e limites</h2><button class="close" onclick="closeModal()">×</button></div><p class="note">0–70% verde · 70–90% amarelo · 90–99% laranja · 100%+ vermelho.</p>${state.categories.map(c=>{let spent=monthTx().filter(x=>x.type==='expense'&&x.category===c.name).reduce((a,x)=>a+Number(x.amount),0),p=Number(c.monthly_limit)?spent/Number(c.monthly_limit)*100:0,cl=p>=100?'bad':p>=90?'warn':'ok';return `<div class="category"><div class="cat-icon">${c.icon}</div><div class="cat-main"><strong>${esc(c.name)}</strong><small>Limite: ${Number(c.monthly_limit)?money(c.monthly_limit):'sem limite'} · gasto: ${money(spent)}</small></div><span class="status ${cl}">${Number(c.monthly_limit)?pct(p):'—'}</span></div>`}).join('')}<button class="btn primary full" onclick="newCategory()">+ Nova categoria</button></div>`)}
-function newCategory(){modal(`<div class="sheet"><div class="sheet-head"><h2>Nova categoria</h2><button class="close" onclick="closeModal()">×</button></div><div class="row"><div class="field"><label>Ícone</label><input id="ci" class="input" value="✨"></div><div class="field"><label>Nome</label><input id="cn" class="input" placeholder="Ex.: Casa"></div></div><div class="field"><label>Limite mensal</label><input id="cl" class="input" type="number" step="0.01" value="0"></div><button class="btn primary full" onclick="saveCategory()">Salvar categoria</button></div>`)}
-async function saveCategory(){let c={user_id:state.user.id,icon:$('#ci').value||'✨',name:$('#cn').value.trim(),monthly_limit:Number($('#cl').value||0)};if(!c.name)return toast('Informe o nome.');let {error}=await sb.from('categories').insert(c);if(error)return toast(error.message);closeModal();await load();openCategories();toast('Categoria criada.')}
-function openCard(){modal(`<div class="sheet"><div class="sheet-head"><h2>Cartão de crédito</h2><button class="close" onclick="closeModal()">×</button></div><div class="grid"><div class="card"><div class="metric">Limite</div><strong>${money(state.settings.card_limit)}</strong></div><div class="card"><div class="metric">Usado</div><strong>${money(cardUsed())}</strong></div><div class="card"><div class="metric">Disponível</div><strong>${money(cardAvailable())}</strong></div></div><div class="progress"><i style="width:${Math.min(100,state.settings.card_limit?cardUsed()/state.settings.card_limit*100:0)}%"></i></div><button class="btn primary full" onclick="closeModal();openSettings()">Editar limite</button><button class="btn secondary full" onclick="openInstallment()">+ Registrar parcelamento</button><div class="section">${state.installments.map(i=>`<div class="settings-item"><span>${esc(i.description)}<small class="note"> ${i.current_installment}/${i.total_installments} · ${money(i.installment_value)}</small></span><strong>${money(i.remaining_amount)}</strong></div>`).join('')||'<div class="empty">Nenhum parcelamento registrado.</div>'}</div></div>`)}
-function openInstallment(){modal(`<div class="sheet"><div class="sheet-head"><h2>Novo parcelamento</h2><button class="close" onclick="closeModal()">×</button></div><div class="field"><label>Descrição</label><input id="idsc" class="input" placeholder="Ex.: celular"></div><div class="three"><div class="field"><label>Valor total</label><input id="itotal" class="input" type="number" step="0.01"></div><div class="field"><label>Parcelas</label><input id="itot" class="input" type="number" min="1" value="1"></div><div class="field"><label>Parcela atual</label><input id="icur" class="input" type="number" min="1" value="1"></div></div><div class="field"><label>Próximo vencimento</label><input id="idate" class="input" type="date"></div><button class="btn primary full" onclick="saveInstallment()">Salvar parcelamento</button></div>`)}
-async function saveInstallment(){let total=Number($('#itotal').value||0),n=Number($('#itot').value||0),cur=Number($('#icur').value||1);if(!total||!n)return toast('Informe valor e parcelas.');let i={user_id:state.user.id,description:$('#idsc').value.trim()||'Parcelamento',total_amount:total,total_installments:n,current_installment:cur,installment_value:total/n,remaining_amount:Math.max(0,n-cur+1)*total/n,next_due:$('#idate').value||today()};let {error}=await sb.from('card_installments').insert(i);if(error)return toast(error.message);closeModal();await load();openCard();toast('Parcelamento salvo.')}
-function openRecurring(){modal(`<div class="sheet"><div class="sheet-head"><h2>Contas recorrentes</h2><button class="close" onclick="closeModal()">×</button></div>${state.recurring.map(r=>`<div class="settings-item"><span>${esc(r.name)}<small class="note"> dia ${r.due_day} · ${money(r.amount)}</small></span><button class="link" onclick="launchRecurring('${r.id}')">Lançar</button></div>`).join('')||'<div class="empty">Nenhuma conta recorrente.</div>'}<button class="btn primary full" onclick="newRecurring()">+ Nova recorrência</button></div>`)}
-function newRecurring(){modal(`<div class="sheet"><div class="sheet-head"><h2>Nova recorrência</h2><button class="close" onclick="closeModal()">×</button></div><div class="field"><label>Nome</label><input id="rn" class="input" placeholder="Ex.: internet"></div><div class="row"><div class="field"><label>Valor</label><input id="ra" class="input" type="number" step="0.01"></div><div class="field"><label>Dia do vencimento</label><input id="rd" class="input" type="number" min="1" max="31" value="5"></div></div><div class="field"><label>Categoria</label><select id="rc" class="input">${state.categories.map(c=>`<option value="${esc(c.name)}">${c.icon} ${esc(c.name)}</option>`).join('')}</select></div><button class="btn primary full" onclick="saveRecurring()">Salvar recorrência</button></div>`)}
-async function saveRecurring(){let r={user_id:state.user.id,name:$('#rn').value.trim(),amount:Number($('#ra').value||0),due_day:Number($('#rd').value||1),category:$('#rc').value};if(!r.name||!r.amount)return toast('Preencha nome e valor.');let {error}=await sb.from('recurring_bills').insert(r);if(error)return toast(error.message);closeModal();await load();openRecurring();toast('Recorrência criada.')}
-async function launchRecurring(id){let r=state.recurring.find(x=>x.id===id);if(!r)return;let x={user_id:state.user.id,type:'expense',amount:r.amount,category:r.category,description:r.name,tx_date:today()};let {error}=await sb.from('transactions').insert(x);if(error)return toast(error.message);await load();closeModal();toast('Conta lançada no mês atual.');showView('transactions')}
-function openAnalysis(){let t=totals(),cats=state.categories.map(c=>({name:c.name,icon:c.icon,total:monthTx().filter(x=>x.type==='expense'&&x.category===c.name).reduce((a,x)=>a+Number(x.amount),0)})).filter(x=>x.total>0).sort((a,b)=>b.total-a.total),max=Math.max(1,...cats.map(x=>x.total));modal(`<div class="sheet"><div class="sheet-head"><h2>Análise financeira</h2><button class="close" onclick="closeModal()">×</button></div><div class="grid"><div class="card"><div class="metric">Receitas</div><strong>${money(t.income)}</strong></div><div class="card"><div class="metric">Despesas</div><strong>${money(t.expense)}</strong></div><div class="card"><div class="metric">Investimentos</div><strong>${money(t.investment)}</strong></div><div class="card"><div class="metric">Taxa de investimento</div><strong>${pct(t.income?t.investment/t.income*100:0)}</strong></div></div><section class="section"><h3>Despesas por categoria</h3><div class="card">${cats.slice(0,8).map(c=>`<div class="metric" style="margin:12px 0">${c.icon} ${esc(c.name)} <b style="float:right">${money(c.total)}</b></div><div class="progress"><i style="width:${c.total/max*100}%"></i></div>`).join('')||'<div class="empty">Ainda não há despesas neste mês.</div>'}</div></section><p class="note">A análise é calculada diretamente dos lançamentos salvos na sua conta.</p></div>`)}
-function setPin(){let p=prompt('Crie um PIN de 4 dígitos.');if(!/^\d{4}$/.test(p||''))return toast('O PIN precisa ter 4 dígitos.');localStorage.setItem('makariaPin',p);toast('PIN configurado.');}
-function lockApp(){if(!localStorage.getItem('makariaPin'))return setPin();localStorage.setItem('makariaLocked','1');location.reload()}
-function unlock(){let p=$('#unlockPin')?.value;if(p===localStorage.getItem('makariaPin')){localStorage.removeItem('makariaLocked');location.reload()}else toast('PIN incorreto.')}
-function toggleDark(){document.body.classList.toggle('dark');localStorage.setItem('makariaDark',document.body.classList.contains('dark')?'1':'0')}
-function backup(){let blob=new Blob([JSON.stringify({settings:state.settings,transactions:state.transactions,goals:state.goals,accounts:state.accounts,categories:state.categories,recurring:state.recurring,installments:state.installments},null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='makaria-backup.json';a.click();URL.revokeObjectURL(a.href)}
-function importBackup(){let input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=async()=>{let f=input.files[0];if(!f)return;let d=JSON.parse(await f.text());toast('Backup lido. Para evitar duplicidades, a restauração completa será feita na próxima versão.');};input.click()}
-function menu(){let items=[['⌂','Início','home'],['▣','Lançamentos','transactions'],['☆','Metas','goals'],['⚙','Configurações financeiras','settings'],['💳','Cartão','card'],['🏦','Contas','accounts'],['🏷️','Categorias','categories'],['🧾','Recorrentes','recurring'],['◔','Análise','analysis'],['⇩','Backup','backup'],['↪','Sair','logout']];$('#drawer').innerHTML=`<div class="drawer-card"><div class="drawer-brand"><img src="logo.svg">MAKARIA</div>${items.map(x=>`<button class="menu-item" onclick="menuAction('${x[2]}')"><span>${x[0]}</span>${x[1]}</button>`).join('')}</div>`;$('#drawer').classList.remove('hidden')}
-function closeDrawer(){ $('#drawer').classList.add('hidden') }
-function menuAction(a){closeDrawer();if(a==='settings')return openSettings();if(a==='card')return openCard();if(a==='accounts')return openAccounts();if(a==='categories')return openCategories();if(a==='recurring')return openRecurring();if(a==='analysis')return openAnalysis();if(a==='backup')return backup();if(a==='logout')return logout();showView(a)}
-$('#menuBtn').onclick=menu;$('#lockBtn').onclick=lockApp;$('#addBtn').onclick=openTx;$$('.bottom button[data-view]').forEach(b=>b.onclick=()=>showView(b.dataset.view));$('#drawer').onclick=e=>{if(e.target.id==='drawer')closeDrawer()};
-if(localStorage.getItem('makariaDark')==='1')document.body.classList.add('dark');
-(async()=>{auth('login');if(localStorage.getItem('makariaLocked')==='1'&&localStorage.getItem('makariaPin')){$('#authCard').innerHTML=`<div style="text-align:center"><img src="logo.svg" style="width:76px"><h1>Acesso protegido</h1><p class="sub">Digite seu PIN para entrar na Makaria.</p><div class="field"><input id="unlockPin" class="input" inputmode="numeric" maxlength="4" type="password" placeholder="PIN de 4 dígitos" style="text-align:center;letter-spacing:8px"></div><button class="btn primary full" onclick="unlock()">Desbloquear</button><div class="switch"><button class="link" onclick="logout()">Sair da conta</button></div></div>`;splashOff();return}if(sb){let {data}=await sb.auth.getSession();if(data.session)await start(data.session.user)}else toast('Supabase não carregou. Atualize a página.');splashOff()})();
+const SUPABASE_URL = 'https://erwxchopsdbsxacwpvvw.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_3lAdjBxhuQGwEAIsti0fvQ_rFq0Nwci';
+
+const hasSB =
+  typeof window.supabase !== 'undefined' &&
+  SUPABASE_URL.startsWith('https://') &&
+  SUPABASE_ANON_KEY.length > 20;
+
+const sb = hasSB
+  ? window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY
+    )
+  : null;
+
+
+/* =========================================================
+   ESTADO
+========================================================= */
+
+let currentUser = null;
+let profile = {};
+let settings = {};
+let transactions = [];
+let goals = [];
+let accounts = [];
+
+let currentTransactionFilter = 'all';
+
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const $ = id => document.getElementById(id);
+
+function money(value) {
+  return Number(value || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
+}
+
+function number(value) {
+  return Number(value || 0);
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  }[char]));
+}
+
+function showToast(message) {
+  const toast = $('toast');
+
+  if (!toast) {
+    alert(message);
+    return;
+  }
+
+  toast.textContent = message;
+  toast.classList.add('show');
+
+  clearTimeout(window.__toastTimer);
+
+  window.__toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2800);
+}
+
+
+/* =========================================================
+   SPLASH / AUTH
+========================================================= */
+
+function hideSplash() {
+  const splash = $('splashScreen');
+
+  if (!splash) return;
+
+  splash.classList.add('hidden');
+
+  setTimeout(() => {
+    splash.style.display = 'none';
+  }, 450);
+}
+
+function showAuth() {
+  $('authScreen')?.classList.remove('hidden');
+  $('appScreen')?.classList.add('hidden');
+
+  $('loginCard')?.classList.remove('hidden');
+  $('signupCard')?.classList.add('hidden');
+
+  clearAuthMessages();
+
+  setTimeout(() => {
+    $('loginEmail')?.focus();
+  }, 100);
+}
+
+function showSignup() {
+  $('loginCard')?.classList.add('hidden');
+  $('signupCard')?.classList.remove('hidden');
+
+  clearAuthMessages();
+
+  setTimeout(() => {
+    $('signupName')?.focus();
+  }, 100);
+}
+
+function clearAuthMessages() {
+  if ($('loginMessage')) {
+    $('loginMessage').textContent = '';
+  }
+
+  if ($('signupMessage')) {
+    $('signupMessage').textContent = '';
+  }
+}
+
+function setAuthMessage(type, message) {
+  const id =
+    type === 'signup'
+      ? 'signupMessage'
+      : 'loginMessage';
+
+  const element = $(id);
+
+  if (!element) return;
+
+  element.textContent = message;
+  element.className = `auth-message ${type}`;
+}
+
+
+/* =========================================================
+   LOGIN
+========================================================= */
+
+async function login() {
+  const email = $('loginEmail')?.value.trim();
+  const password = $('loginPassword')?.value;
+
+  if (!email || !password) {
+    setAuthMessage(
+      'login',
+      'Preencha seu e-mail e sua senha.'
+    );
+
+    return;
+  }
+
+  if (!sb) {
+    setAuthMessage(
+      'login',
+      'Não foi possível conectar ao Supabase.'
+    );
+
+    return;
+  }
+
+  setAuthMessage(
+    'login',
+    'Entrando...'
+  );
+
+  try {
+    const { data, error } =
+      await sb.auth.signInWithPassword({
+        email,
+        password
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    currentUser = data.user;
+
+    await loadUserData();
+
+    openApp();
+
+  } catch (error) {
+    console.error(error);
+
+    setAuthMessage(
+      'login',
+      translateAuthError(error)
+    );
+  }
+}
+
+
+/* =========================================================
+   CADASTRO
+========================================================= */
+
+async function signup() {
+  const name =
+    $('signupName')?.value.trim();
+
+  const email =
+    $('signupEmail')?.value.trim();
+
+  const password =
+    $('signupPassword')?.value;
+
+  if (!name || !email || !password) {
+    setAuthMessage(
+      'signup',
+      'Preencha todos os campos.'
+    );
+
+    return;
+  }
+
+  if (password.length < 6) {
+    setAuthMessage(
+      'signup',
+      'A senha precisa ter pelo menos 6 caracteres.'
+    );
+
+    return;
+  }
+
+  if (!sb) {
+    setAuthMessage(
+      'signup',
+      'Não foi possível conectar ao Supabase.'
+    );
+
+    return;
+  }
+
+  setAuthMessage(
+    'signup',
+    'Criando sua conta...'
+  );
+
+  try {
+    const { data, error } =
+      await sb.auth.signUp({
+        email,
+        password,
+
+        options: {
+          data: {
+            full_name: name
+          }
+        }
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    /*
+      Se a confirmação de e-mail estiver desativada,
+      o Supabase já entrega uma sessão.
+    */
+
+    if (data.session && data.user) {
+      currentUser = data.user;
+
+      await loadUserData();
+
+      openApp();
+
+      showToast(
+        'Conta criada com sucesso.'
+      );
+
+      return;
+    }
+
+    setAuthMessage(
+      'signup',
+      'Conta criada. Verifique seu e-mail para confirmar o cadastro.'
+    );
+
+    setTimeout(() => {
+      showLogin();
+    }, 1500);
+
+  } catch (error) {
+    console.error(error);
+
+    setAuthMessage(
+      'signup',
+      translateAuthError(error)
+    );
+  }
+}
+
+function translateAuthError(error) {
+  const message =
+    String(error?.message || '').toLowerCase();
+
+  if (message.includes('already registered')) {
+    return 'Este e-mail já possui uma conta.';
+  }
+
+  if (
+    message.includes('invalid login credentials')
+  ) {
+    return 'E-mail ou senha incorretos.';
+  }
+
+  if (
+    message.includes('email not confirmed')
+  ) {
+    return 'Seu e-mail ainda não foi confirmado.';
+  }
+
+  if (
+    message.includes('failed to fetch') ||
+    message.includes('network')
+  ) {
+    return 'Não foi possível conectar ao Supabase.';
+  }
+
+  return error?.message ||
+    'Ocorreu um erro. Tente novamente.';
+}
+
+
+/* =========================================================
+   LOGOUT
+========================================================= */
+
+async function logout() {
+  try {
+    if (sb) {
+      await sb.auth.signOut();
+    }
+  } catch (error) {
+    console.error(error);
+  }
+
+  currentUser = null;
+  profile = {};
+  settings = {};
+  transactions = [];
+  goals = [];
+  accounts = [];
+
+  closeMenu();
+
+  $('appScreen')?.classList.add('hidden');
+
+  showAuth();
+
+  showToast('Você saiu da sua conta.');
+}
+
+
+/* =========================================================
+   ABRIR APP
+========================================================= */
+
+function openApp() {
+  $('authScreen')?.classList.add('hidden');
+  $('appScreen')?.classList.remove('hidden');
+
+  setUserProfile();
+
+  showScreen('home');
+
+  renderHome();
+}
+
+
+/* =========================================================
+   DADOS DO USUÁRIO
+========================================================= */
+
+async function loadUserData() {
+  if (!sb || !currentUser) {
+    return;
+  }
+
+  try {
+    const [
+      profileResult,
+      settingsResult,
+      transactionsResult,
+      goalsResult,
+      accountsResult
+    ] = await Promise.all([
+
+      sb
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .maybeSingle(),
+
+      sb
+        .from('settings')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .maybeSingle(),
+
+      sb
+        .from('transactions')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('tx_date', {
+          ascending: false
+        }),
+
+      sb
+        .from('goals')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', {
+          ascending: false
+        }),
+
+      sb
+        .from('accounts')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', {
+          ascending: false
+        })
+
+    ]);
+
+    if (profileResult.error) {
+      console.error(
+        'Erro no perfil:',
+        profileResult.error
+      );
+    }
+
+    if (settingsResult.error) {
+      console.error(
+        'Erro nas configurações:',
+        settingsResult.error
+      );
+    }
+
+    if (transactionsResult.error) {
+      console.error(
+        'Erro nas transações:',
+        transactionsResult.error
+      );
+    }
+
+    if (goalsResult.error) {
+      console.error(
+        'Erro nas metas:',
+        goalsResult.error
+      );
+    }
+
+    if (accountsResult.error) {
+      console.error(
+        'Erro nas contas:',
+        accountsResult.error
+      );
+    }
+
+    profile =
+      profileResult.data || {};
+
+    settings =
+      settingsResult.data || {
+        salary: 0,
+        advance_pct: 0,
+        inss_pct: 0,
+        assist_pct: 0,
+        life: 0,
+        negocial: 0,
+        card_limit: 0
+      };
+
+    transactions =
+      transactionsResult.data || [];
+
+    goals =
+      goalsResult.data || [];
+
+    accounts =
+      accountsResult.data || [];
+
+  } catch (error) {
+    console.error(
+      'Erro geral ao carregar dados:',
+      error
+    );
+
+    showToast(
+      'Não foi possível carregar seus dados.'
+    );
+  }
+}
+
+
+/* =========================================================
+   PERFIL
+========================================================= */
+
+function setUserProfile() {
+  const name =
+    profile.full_name ||
+    currentUser?.user_metadata?.full_name ||
+    'Mirela';
+
+  const email =
+    currentUser?.email || '';
+
+  if ($('profileName')) {
+    $('profileName').textContent =
+      name;
+  }
+
+  if ($('profileEmail')) {
+    $('profileEmail').textContent =
+      email;
+  }
+
+  if ($('welcomeTitle')) {
+    $('welcomeTitle').textContent =
+      `Olá, ${name.split(' ')[0]}.`;
+  }
+
+  const avatar =
+    document.querySelector('.profile-avatar');
+
+  if (avatar) {
+    avatar.textContent =
+      name.charAt(0).toUpperCase();
+  }
+}
+
+
+/* =========================================================
+   SALÁRIO
+========================================================= */
+
+function calculateSalary() {
+  const salary =
+    number(settings.salary);
+
+  const advancePct =
+    number(settings.advance_pct);
+
+  const inssPct =
+    number(settings.inss_pct);
+
+  const assistPct =
+    number(settings.assist_pct);
+
+  const life =
+    number(settings.life);
+
+  const negocial =
+    number(settings.negocial);
+
+  const inss =
+    salary * (inssPct / 100);
+
+  const assist =
+    salary * (assistPct / 100);
+
+  const liquid =
+    salary -
+    inss -
+    assist -
+    life -
+    negocial;
+
+  const advance =
+    salary * (advancePct / 100);
+
+  const remaining =
+    liquid - advance;
+
+  return {
+    salary,
+    inss,
+    assist,
+    life,
+    negocial,
+    liquid,
+    advance,
+    remaining
+  };
+}
+
+function renderSalarySettings() {
+  const result =
+    calculateSalary();
+
+  if ($('grossSalaryInput')) {
+    $('grossSalaryInput').value =
+      result.salary || '';
+  }
+
+  if ($('advancePercentInput')) {
+    $('advancePercentInput').value =
+      settings.advance_pct ?? 0;
+  }
+
+  if ($('inssPercentInput')) {
+    $('inssPercentInput').value =
+      settings.inss_pct ?? 0;
+  }
+
+  if ($('assistentialPercentInput')) {
+    $('assistentialPercentInput').value =
+      settings.assist_pct ?? 0;
+  }
+
+  if ($('lifeInsuranceInput')) {
+    $('lifeInsuranceInput').value =
+      settings.life ?? 0;
+  }
+
+  if ($('negocialInput')) {
+    $('negocialInput').value =
+      settings.negocial ?? 0;
+  }
+
+  if ($('profileNetSalary')) {
+    $('profileNetSalary').textContent =
+      money(result.liquid);
+  }
+
+  if ($('profileAdvance')) {
+    $('profileAdvance').textContent =
+      money(result.advance);
+  }
+
+  if ($('profileRemaining')) {
+    $('profileRemaining').textContent =
+      money(result.remaining);
+  }
+}
+
+async function saveSalarySettings() {
+  const newSettings = {
+    user_id: currentUser.id,
+
+    salary:
+      number(
+        $('grossSalaryInput')?.value
+      ),
+
+    advance_pct:
+      number(
+        $('advancePercentInput')?.value
+      ),
+
+    inss_pct:
+      number(
+        $('inssPercentInput')?.value
+      ),
+
+    assist_pct:
+      number(
+        $('assistentialPercentInput')?.value
+      ),
+
+    life:
+      number(
+        $('lifeInsuranceInput')?.value
+      ),
+
+    negocial:
+      number(
+        $('negocialInput')?.value
+      )
+  };
+
+  if (!sb) {
+    return;
+  }
+
+  const { error } =
+    await sb
+      .from('settings')
+      .upsert(
+        newSettings,
+        {
+          onConflict: 'user_id'
+        }
+      );
+
+  if (error) {
+    console.error(error);
+
+    showToast(
+      'Não foi possível salvar as configurações.'
+    );
+
+    return;
+  }
+
+  settings = {
+    ...settings,
+    ...newSettings
+  };
+
+  renderSalarySettings();
+
+  renderHome();
+
+  showToast(
+    'Configuração salarial salva.'
+  );
+}
+
+
+/* =========================================================
+   HOME
+========================================================= */
+
+function getCurrentMonthTransactions() {
+  const month =
+    new Date()
+      .toISOString()
+      .slice(0, 7);
+
+  return transactions.filter(tx =>
+    String(
+      tx.tx_date || tx.date || ''
+    ).slice(0, 7) === month
+  );
+}
+
+function calculateMonth() {
+  const monthTx =
+    getCurrentMonthTransactions();
+
+  let income = 0;
+  let expense = 0;
+  let investment = 0;
+
+  monthTx.forEach(tx => {
+    const value =
+      number(tx.amount);
+
+    if (tx.type === 'income') {
+      income += value;
+    }
+
+    if (tx.type === 'expense') {
+      expense += value;
+    }
+
+    if (tx.type === 'investment') {
+      investment += value;
+    }
+  });
+
+  return {
+    income,
+    expense,
+    investment
+  };
+}
+
+function renderHome() {
+  const month =
+    calculateMonth();
+
+  const salary =
+    calculateSalary();
+
+  const available =
+    salary.liquid +
+    month.income -
+    month.expense -
+    month.investment;
+
+  if ($('homeBalance')) {
+    $('homeBalance').textContent =
+      money(available);
+  }
+
+  if ($('homeSalaryReference')) {
+    $('homeSalaryReference').textContent =
+      money(salary.liquid);
+  }
+
+  if ($('homeIncome')) {
+    $('homeIncome').textContent =
+      money(month.income);
+  }
+
+  if ($('homeExpense')) {
+    $('homeExpense').textContent =
+      money(month.expense);
+  }
+
+  if ($('homeInvestment')) {
+    $('homeInvestment').textContent =
+      money(month.investment);
+  }
+
+  if ($('homeGoals')) {
+    $('homeGoals').textContent =
+      goals.length;
+  }
+
+  if ($('monthIncomeValue')) {
+    $('monthIncomeValue').textContent =
+      money(month.income);
+  }
+
+  if ($('monthExpenseValue')) {
+    $('monthExpenseValue').textContent =
+      money(month.expense);
+  }
+
+  const max =
+    Math.max(
+      month.income,
+      month.expense,
+      1
+    );
+
+  if ($('monthIncomeBar')) {
+    $('monthIncomeBar').style.width =
+      `${Math.min(
+        100,
+        (month.income / max) * 100
+      )}%`;
+  }
+
+  if ($('monthExpenseBar')) {
+    $('monthExpenseBar').style.width =
+      `${Math.min(
+        100,
+        (month.expense / max) * 100
+      )}%`;
+  }
+
+  const count =
+    getCurrentMonthTransactions().length;
+
+  if ($('monthLaunchCount')) {
+    $('monthLaunchCount').textContent =
+      `${count} lançamento${count === 1 ? '' : 's'}`;
+  }
+
+  renderRecentTransactions();
+}
+
+function renderRecentTransactions() {
+  const container =
+    $('recentTransactions');
+
+  if (!container) return;
+
+  const list =
+    getCurrentMonthTransactions()
+      .slice(0, 5);
+
+  if (!list.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        Ainda não há lançamentos neste mês.
+      </div>
+    `;
+
+    return;
+  }
+
+  container.innerHTML =
+    list.map(transactionHTML).join('');
+}
+
+
+/* =========================================================
+   TRANSAÇÕES
+========================================================= */
+
+function transactionHTML(tx) {
+  const type =
+    tx.type || 'expense';
+
+  const symbol =
+    type === 'income'
+      ? '+'
+      : type === 'investment'
+        ? '↗'
+        : '−';
+
+  const amountClass =
+    type === 'income'
+      ? 'income'
+      : type === 'expense'
+        ? 'expense'
+        : 'investment';
+
+  const date =
+    tx.tx_date ||
+    tx.date ||
+    '';
+
+  return `
+    <div class="transaction-item">
+
+      <div class="transaction-icon">
+        ${symbol}
+      </div>
+
+      <div class="transaction-info">
+
+        <strong>
+          ${escapeHtml(
+            tx.description ||
+            tx.category ||
+            'Lançamento'
+          )}
+        </strong>
+
+        <small>
+          ${escapeHtml(
+            tx.category ||
+            'Outros'
+          )}
+
+          ${
+            date
+              ? ` · ${new Date(
+                  `${date}T12:00:00`
+                ).toLocaleDateString(
+                  'pt-BR'
+                )}`
+              : ''
+          }
+        </small>
+
+      </div>
+
+      <strong class="transaction-value ${amountClass}">
+        ${type === 'income' ? '+' : '-'}
+        ${money(tx.amount)}
+      </strong>
+
+    </div>
+  `;
+}
+
+function renderTransactions() {
+  const container =
+    $('transactionsList');
+
+  if (!container) return;
+
+  let list =
+    [...transactions];
+
+  if (
+    currentTransactionFilter !== 'all'
+  ) {
+    list =
+      list.filter(
+        tx =>
+          tx.type ===
+          currentTransactionFilter
+      );
+  }
+
+  if (!list.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        Nenhum lançamento encontrado.
+      </div>
+    `;
+
+    return;
+  }
+
+  container.innerHTML =
+    list.map(transactionHTML)
+      .join('');
+}
+
+function openTransactionModal() {
+  const overlay =
+    $('modalOverlay');
+
+  const content =
+    $('modalContent');
+
+  if (!overlay || !content) return;
+
+  content.innerHTML = `
+
+    <div class="modal-header">
+
+      <div>
+        <span class="eyebrow">
+          MOVIMENTAÇÃO
+        </span>
+
+        <h2>
+          Novo lançamento
+        </h2>
+      </div>
+
+      <button
+        type="button"
+        class="modal-close"
+        data-close-modal
+      >
+        ×
+      </button>
+
+    </div>
+
+
+    <form id="transactionModalForm">
+
+      <label>
+        Tipo
+      </label>
+
+      <select
+        id="transactionType"
+        required
+      >
+        <option value="expense">
+          Despesa
+        </option>
+
+        <option value="income">
+          Receita
+        </option>
+
+        <option value="investment">
+          Investimento
+        </option>
+      </select>
+
+
+      <label>
+        Valor
+      </label>
+
+      <input
+        id="transactionAmount"
+        type="number"
+        min="0"
+        step="0.01"
+        placeholder="0,00"
+        required
+      >
+
+
+      <label>
+        Categoria
+      </label>
+
+      <input
+        id="transactionCategory"
+        type="text"
+        placeholder="Ex.: Alimentação"
+        required
+      >
+
+
+      <label>
+        Descrição
+      </label>
+
+      <input
+        id="transactionDescription"
+        type="text"
+        placeholder="Ex.: supermercado"
+      >
+
+
+      <label>
+        Data
+      </label>
+
+      <input
+        id="transactionDate"
+        type="date"
+        value="${today()}"
+        required
+      >
+
+
+      <button
+        type="submit"
+        class="primary-button full-width"
+      >
+        Salvar lançamento
+      </button>
+
+    </form>
+  `;
+
+  overlay.classList.remove('hidden');
+
+  $('transactionModalForm')
+    ?.addEventListener(
+      'submit',
+      async event => {
+
+        event.preventDefault();
+
+        await saveTransaction();
+
+      }
+    );
+}
+
+async function saveTransaction() {
+  const transaction = {
+    user_id:
+      currentUser.id,
+
+    type:
+      $('transactionType').value,
+
+    amount:
+      number(
+        $('transactionAmount').value
+      ),
+
+    category:
+      $('transactionCategory')
+        .value
+        .trim() ||
+      'Outros',
+
+    description:
+      $('transactionDescription')
+        .value
+        .trim(),
+
+    tx_date:
+      $('transactionDate')
+        .value
+  };
+
+  if (!transaction.amount) {
+    showToast(
+      'Informe um valor.'
+    );
+
+    return;
+  }
+
+  if (!sb) {
+    return;
+  }
+
+  const { error } =
+    await sb
+      .from('transactions')
+      .insert(transaction);
+
+  if (error) {
+    console.error(error);
+
+    showToast(
+      'Não foi possível salvar o lançamento.'
+    );
+
+    return;
+  }
+
+  closeModal();
+
+  await loadUserData();
+
+  renderHome();
+  renderTransactions();
+
+  showToast(
+    'Lançamento salvo.'
+  );
+}
+
+
+/* =========================================================
+   METAS
+========================================================= */
+
+function renderGoals() {
+  const container =
+    $('goalsList');
+
+  if (!container) return;
+
+  if (!goals.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        Você ainda não possui metas.
+      </div>
+    `;
+
+    return;
+  }
+
+  container.innerHTML =
+    goals.map(goal => {
+
+      const target =
+        number(goal.target);
+
+      const saved =
+        number(goal.saved);
+
+      const percent =
+        target > 0
+          ? Math.min(
+              100,
+              (saved / target) * 100
+            )
+          : 0;
+
+      return `
+        <div class="goal-card">
+
+          <div class="goal-header">
+
+            <div>
+              <span class="eyebrow">
+                META
+              </span>
+
+              <h3>
+                ${escapeHtml(
+                  goal.name
+                )}
+              </h3>
+            </div>
+
+            <strong>
+              ${Math.round(
+                percent
+              )}%
+            </strong>
+
+          </div>
+
+          <div class="goal-values">
+
+            <span>
+              ${money(saved)}
+            </span>
+
+            <span>
+              ${money(target)}
+            </span>
+
+          </div>
+
+          <div class="progress-track">
+
+            <div
+              class="progress-fill"
+              style="width:${percent}%"
+            ></div>
+
+          </div>
+
+        </div>
+      `;
+
+    }).join('');
+}
+
+function openGoalModal() {
+  const overlay =
+    $('modalOverlay');
+
+  const content =
+    $('modalContent');
+
+  if (!overlay || !content) return;
+
+  content.innerHTML = `
+
+    <div class="modal-header">
+
+      <div>
+        <span class="eyebrow">
+          PLANEJAMENTO
+        </span>
+
+        <h2>
+          Nova meta
+        </h2>
+      </div>
+
+      <button
+        type="button"
+        class="modal-close"
+        data-close-modal
+      >
+        ×
+      </button>
+
+    </div>
+
+
+    <form id="goalModalForm">
+
+      <label>
+        Nome da meta
+      </label>
+
+      <input
+        id="goalName"
+        type="text"
+        placeholder="Ex.: Viagem"
+        required
+      >
+
+
+      <label>
+        Valor objetivo
+      </label>
+
+      <input
+        id="goalTarget"
+        type="number"
+        min="0"
+        step="0.01"
+        placeholder="0,00"
+        required
+      >
+
+
+      <label>
+        Valor já guardado
+      </label>
+
+      <input
+        id="goalSaved"
+        type="number"
+        min="0"
+        step="0.01"
+        value="0"
+      >
+
+
+      <button
+        type="submit"
+        class="primary-button full-width"
+      >
+        Criar meta
+      </button>
+
+    </form>
+  `;
+
+  overlay.classList.remove('hidden');
+
+  $('goalModalForm')
+    ?.addEventListener(
+      'submit',
+      async event => {
+
+        event.preventDefault();
+
+        await saveGoal();
+
+      }
+    );
+}
+
+async function saveGoal() {
+  const goal = {
+    user_id:
+      currentUser.id,
+
+    name:
+      $('goalName')
+        .value
+        .trim(),
+
+    target:
+      number(
+        $('goalTarget')
+          .value
+      ),
+
+    saved:
+      number(
+        $('goalSaved')
+          .value
+      )
+  };
+
+  if (!goal.name || !goal.target) {
+    showToast(
+      'Preencha nome e valor da meta.'
+    );
+
+    return;
+  }
+
+  const { error } =
+    await sb
+      .from('goals')
+      .insert(goal);
+
+  if (error) {
+    console.error(error);
+
+    showToast(
+      'Não foi possível criar a meta.'
+    );
+
+    return;
+  }
+
+  closeModal();
+
+  await loadUserData();
+
+  renderGoals();
+  renderHome();
+
+  showToast(
+    'Meta criada com sucesso.'
+  );
+}
+
+
+/* =========================================================
+   NAVEGAÇÃO
+========================================================= */
+
+function showScreen(screenName) {
+  document
+    .querySelectorAll('.app-page')
+    .forEach(page => {
+      page.classList.remove(
+        'active-page'
+      );
+    });
+
+  const target =
+    $(`${screenName}Screen`);
+
+  if (target) {
+    target.classList.add(
+      'active-page'
+    );
+  }
+
+  document
+    .querySelectorAll(
+      '[data-screen]'
+    )
+    .forEach(button => {
+
+      button.classList.toggle(
+        'active',
+        button.dataset.screen ===
+          screenName
+      );
+
+    });
+
+  closeMenu();
+
+  if (screenName === 'home') {
+    renderHome();
+  }
+
+  if (
+    screenName ===
+    'transactions'
+  ) {
+    renderTransactions();
+  }
+
+  if (
+    screenName ===
+    'goals'
+  ) {
+    renderGoals();
+  }
+
+  if (
+    screenName ===
+    'profile'
+  ) {
+    renderSalarySettings();
+    setUserProfile();
+  }
+}
+
+
+/* =========================================================
+   MENU
+========================================================= */
+
+function openMenu() {
+  $('sideMenu')
+    ?.classList.add('open');
+
+  $('menuOverlay')
+    ?.classList.add('open');
+}
+
+function closeMenu() {
+  $('sideMenu')
+    ?.classList.remove('open');
+
+  $('menuOverlay')
+    ?.classList.remove('open');
+}
+
+
+/* =========================================================
+   MODAL
+========================================================= */
+
+function closeModal() {
+  $('modalOverlay')
+    ?.classList.add('hidden');
+}
+
+
+/* =========================================================
+   PIN
+========================================================= */
+
+function configurePin() {
+  const pin =
+    prompt(
+      'Digite um PIN de 4 dígitos:'
+    );
+
+  if (!/^\d{4}$/.test(pin || '')) {
+    showToast(
+      'O PIN precisa ter exatamente 4 dígitos.'
+    );
+
+    return;
+  }
+
+  localStorage.setItem(
+    'makariaPin',
+    pin
+  );
+
+  showToast(
+    'PIN configurado.'
+  );
+}
+
+function lockApp() {
+  localStorage.setItem(
+    'makariaLocked',
+    '1'
+  );
+
+  location.reload();
+}
+
+
+/* =========================================================
+   BLOQUEIO POR PIN
+========================================================= */
+
+function checkPinLock() {
+  const locked =
+    localStorage.getItem(
+      'makariaLocked'
+    ) === '1';
+
+  const pin =
+    localStorage.getItem(
+      'makariaPin'
+    );
+
+  if (!locked || !pin) {
+    return false;
+  }
+
+  const authScreen =
+    $('authScreen');
+
+  if (!authScreen) {
+    return false;
+  }
+
+  authScreen.innerHTML = `
+
+    <div class="auth-brand">
+
+      <img
+        src="logo.svg"
+        alt="Makaria"
+      >
+
+      <div class="brand-name">
+        MAKARIA
+      </div>
+
+      <div class="brand-tagline">
+        onde prosperidade encontra plenitude.
+      </div>
+
+    </div>
+
+    <div class="auth-card">
+
+      <h1>
+        Acesso protegido
+      </h1>
+
+      <p class="auth-description">
+        Digite seu PIN para continuar.
+      </p>
+
+      <input
+        id="unlockPin"
+        type="password"
+        inputmode="numeric"
+        maxlength="4"
+        placeholder="••••"
+      >
+
+      <button
+        type="button"
+        id="unlockButton"
+        class="primary-button"
+      >
+        Desbloquear
+      </button>
+
+      <button
+        type="button"
+        id="logoutFromLock"
+        class="text-button"
+      >
+        Sair da conta
+      </button>
+
+    </div>
+  `;
+
+  authScreen.classList.remove(
+    'hidden'
+  );
+
+  $('appScreen')
+    ?.classList.add(
+      'hidden'
+    );
+
+  $('unlockButton')
+    ?.addEventListener(
+      'click',
+      unlockWithPin
+    );
+
+  $('logoutFromLock')
+    ?.addEventListener(
+      'click',
+      logout
+    );
+
+  return true;
+}
+
+async function unlockWithPin() {
+  const entered =
+    $('unlockPin')
+      ?.value;
+
+  const saved =
+    localStorage.getItem(
+      'makariaPin'
+    );
+
+  if (entered !== saved) {
+    showToast(
+      'PIN incorreto.'
+    );
+
+    return;
+  }
+
+  localStorage.removeItem(
+    'makariaLocked'
+  );
+
+  if (sb) {
+    const { data } =
+      await sb.auth.getSession();
+
+    if (data?.session?.user) {
+      currentUser =
+        data.session.user;
+
+      await loadUserData();
+
+      openApp();
+
+      return;
+    }
+  }
+
+  showAuth();
+}
+
+
+/* =========================================================
+   EVENTOS
+========================================================= */
+
+function bindEvents() {
+
+  $('showSignupButton')
+    ?.addEventListener(
+      'click',
+      showSignup
+    );
+
+  $('showLoginButton')
+    ?.addEventListener(
+      'click',
+      showLogin
+    );
+
+  $('loginForm')
+    ?.addEventListener(
+      'submit',
+      event => {
+        event.preventDefault();
+        login();
+      }
+    );
+
+  $('signupForm')
+    ?.addEventListener(
+      'submit',
+      event => {
+        event.preventDefault();
+        signup();
+      }
+    );
+
+  $('menuButton')
+    ?.addEventListener(
+      'click',
+      openMenu
+    );
+
+  $('closeMenuButton')
+    ?.addEventListener(
+      'click',
+      closeMenu
+    );
+
+  $('menuOverlay')
+    ?.addEventListener(
+      'click',
+      closeMenu
+    );
+
+  $('logoutButton')
+    ?.addEventListener(
+      'click',
+      logout
+    );
+
+  $('profileLogoutButton')
+    ?.addEventListener(
+      'click',
+      logout
+    );
+
+  $('lockButton')
+    ?.addEventListener(
+      'click',
+      lockApp
+    );
+
+  $('configurePinButton')
+    ?.addEventListener(
+      'click',
+      configurePin
+    );
+
+  $('autoLockButton')
+    ?.addEventListener(
+      'click',
+      lockApp
+    );
+
+  $('saveSalaryButton')
+    ?.addEventListener(
+      'click',
+      saveSalarySettings
+    );
+
+  $('addTransactionButton')
+    ?.addEventListener(
+      'click',
+      openTransactionModal
+    );
+
+  $('floatingAddButton')
+    ?.addEventListener(
+      'click',
+      openTransactionModal
+    );
+
+  $('addGoalButton')
+    ?.addEventListener(
+      'click',
+      openGoalModal
+    );
+
+  $('modalOverlay')
+    ?.addEventListener(
+      'click',
+      event => {
+
+        if (
+          event.target ===
+          $('modalOverlay')
+        ) {
+          closeModal();
+        }
+
+      }
+    );
+
+  document
+    .querySelectorAll(
+      '[data-close-modal]'
+    )
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        closeModal
+      );
+    });
+
+  document
+    .querySelectorAll(
+      '[data-screen]'
+    )
+    .forEach(button => {
+
+      button.addEventListener(
+        'click',
+        () => {
+
+          showScreen(
+            button.dataset.screen
+          );
+
+        }
+      );
+
+    });
+
+  document
+    .querySelectorAll(
+      '[data-filter]'
+    )
+    .forEach(button => {
+
+      button.addEventListener(
+        'click',
+        () => {
+
+          currentTransactionFilter =
+            button.dataset.filter;
+
+          document
+            .querySelectorAll(
+              '[data-filter]'
+            )
+            .forEach(item => {
+              item.classList.toggle(
+                'active',
+                item.dataset.filter ===
+                  currentTransactionFilter
+              );
+            });
+
+          renderTransactions();
+
+        }
+      );
+
+    });
+}
+
+
+/* =========================================================
+   LOGIN / SESSION
+========================================================= */
+
+function showLogin() {
+  $('signupCard')
+    ?.classList.add(
+      'hidden'
+    );
+
+  $('loginCard')
+    ?.classList.remove(
+      'hidden'
+    );
+
+  clearAuthMessages();
+
+  setTimeout(() => {
+    $('loginEmail')?.focus();
+  }, 100);
+}
+
+async function restoreSession() {
+
+  /*
+    IMPORTANTE:
+    a tela de login é liberada primeiro.
+    Assim o app nunca fica preso no splash
+    caso a rede demore para responder.
+  */
+
+  showAuth();
+
+  hideSplash();
+
+  if (!sb) {
+    console.error(
+      'Biblioteca do Supabase não carregada.'
+    );
+
+    return;
+  }
+
+  try {
+
+    const {
+      data,
+      error
+    } =
+      await sb.auth.getSession();
+
+    if (error) {
+      console.error(
+        'Erro ao recuperar sessão:',
+        error
+      );
+
+      return;
+    }
+
+    if (
+      data?.session?.user
+    ) {
+
+      currentUser =
+        data.session.user;
+
+      await loadUserData();
+
+      openApp();
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      'Erro ao verificar sessão:',
+      error
+    );
+
+    /*
+      Mesmo que o Supabase falhe,
+      o login continua disponível.
+    */
+
+    showAuth();
+
+  }
+}
+
+
+/* =========================================================
+   INICIALIZAÇÃO
+========================================================= */
+
+async function init() {
+
+  bindEvents();
+
+  /*
+    Primeiro verificamos se há PIN.
+  */
+
+  const pinLocked =
+    checkPinLock();
+
+  if (pinLocked) {
+    hideSplash();
+    return;
+  }
+
+  /*
+    Depois liberamos imediatamente
+    a tela de autenticação.
+  */
+
+  await restoreSession();
+}
+
+
+window.addEventListener(
+  'DOMContentLoaded',
+  init
+);
