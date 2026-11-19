@@ -1,30 +1,1047 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#59622d"><meta name="description" content="Makaria — onde prosperidade encontra plenitude.">
-<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="logo.svg">
-<title>Makaria</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+  <meta name="theme-color" content="#66723f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <title>Makaria</title>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  >
+
+  <link rel="stylesheet" href="style.css?v=20261119">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
+
 <body>
-<div id="splash" class="splash"><img src="logo.svg"><div>MAKARIA</div><small>onde prosperidade encontra plenitude.</small></div>
-<div id="app">
-<section id="auth" class="auth-screen">
-  <div class="brand"><img src="logo.svg"><div class="brand-name">MAKARIA</div><div class="tagline">onde prosperidade encontra plenitude.</div></div>
-  <div class="auth-card" id="authCard"></div>
-  <p class="legal">Seus dados são privados e vinculados à sua conta.</p>
-</section>
-<section id="shell" class="hidden">
-<header class="topbar"><button class="icon-btn" id="menuBtn">☰</button><div class="top-brand"><img src="logo.svg"><span>MAKARIA</span></div><button class="icon-btn" id="lockBtn">⌁</button></header>
-<main id="view"></main>
-<nav class="bottom"><button data-view="home" class="active">⌂<span>Início</span></button><button data-view="transactions">▣<span>Lançamentos</span></button><button id="addBtn" class="add">+</button><button data-view="goals">☆<span>Metas</span></button><button data-view="profile">♙<span>Perfil</span></button></nav>
-</section>
-<div id="modal" class="modal hidden"></div>
-<div id="drawer" class="drawer hidden"></div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js"></script>
-</body></html>
+
+  <!-- =========================
+       SPLASH
+  ========================== -->
+
+  <div id="splashScreen" class="splash-screen">
+    <div class="splash-content">
+      <img src="logo.svg" alt="Makaria" class="splash-logo">
+
+      <div class="brand-name">MAKARIA</div>
+
+      <div class="brand-tagline">
+        onde prosperidade encontra plenitude.
+      </div>
+
+      <div class="loading-indicator"></div>
+    </div>
+  </div>
+
+
+  <!-- =========================
+       AUTENTICAÇÃO
+  ========================== -->
+
+  <section id="authScreen" class="auth-screen hidden">
+
+    <div class="auth-brand">
+      <img src="logo.svg" alt="Makaria">
+
+      <div class="brand-name">MAKARIA</div>
+
+      <div class="brand-tagline">
+        onde prosperidade encontra plenitude.
+      </div>
+    </div>
+
+
+    <!-- LOGIN -->
+
+    <div id="loginCard" class="auth-card">
+
+      <h1>Entrar</h1>
+
+      <p class="auth-description">
+        Acesse sua vida financeira com clareza.
+      </p>
+
+      <form id="loginForm">
+
+        <label for="loginEmail">E-mail</label>
+
+        <input
+          id="loginEmail"
+          type="email"
+          autocomplete="email"
+          placeholder="voce@email.com"
+          required
+        >
+
+        <label for="loginPassword">Senha</label>
+
+        <input
+          id="loginPassword"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Sua senha"
+          required
+        >
+
+        <button type="submit" class="primary-button">
+          Entrar
+        </button>
+
+      </form>
+
+      <div id="loginMessage" class="auth-message"></div>
+
+      <p class="auth-switch">
+        Ainda não tem uma conta?
+        <button type="button" id="showSignupButton">
+          Criar conta
+        </button>
+      </p>
+
+    </div>
+
+
+    <!-- CADASTRO -->
+
+    <div id="signupCard" class="auth-card hidden">
+
+      <h1>Criar conta</h1>
+
+      <p class="auth-description">
+        Comece a construir uma vida financeira mais consciente.
+      </p>
+
+      <form id="signupForm">
+
+        <label for="signupName">Nome completo</label>
+
+        <input
+          id="signupName"
+          type="text"
+          autocomplete="name"
+          placeholder="Seu nome completo"
+          required
+        >
+
+        <label for="signupEmail">E-mail</label>
+
+        <input
+          id="signupEmail"
+          type="email"
+          autocomplete="email"
+          placeholder="voce@email.com"
+          required
+        >
+
+        <label for="signupPassword">Senha</label>
+
+        <input
+          id="signupPassword"
+          type="password"
+          autocomplete="new-password"
+          placeholder="Mínimo de 6 caracteres"
+          minlength="6"
+          required
+        >
+
+        <button type="submit" class="primary-button">
+          Criar minha conta
+        </button>
+
+      </form>
+
+      <div id="signupMessage" class="auth-message"></div>
+
+      <p class="auth-switch">
+        Já tem uma conta?
+        <button type="button" id="showLoginButton">
+          Entrar
+        </button>
+      </p>
+
+    </div>
+
+  </section>
+
+
+  <!-- =========================
+       APLICAÇÃO
+  ========================== -->
+
+  <div id="appScreen" class="app-screen hidden">
+
+    <header class="topbar">
+
+      <button
+        type="button"
+        id="menuButton"
+        class="icon-button"
+        aria-label="Abrir menu"
+      >
+        ☰
+      </button>
+
+      <div class="topbar-brand">
+
+        <img src="logo.svg" alt="Makaria">
+
+        <span>MAKARIA</span>
+
+      </div>
+
+      <button
+        type="button"
+        id="lockButton"
+        class="icon-button"
+        aria-label="Bloquear"
+      >
+        🔒
+      </button>
+
+    </header>
+
+
+    <!-- MENU LATERAL -->
+
+    <aside id="sideMenu" class="side-menu">
+
+      <div class="side-menu-header">
+
+        <div class="side-brand">
+
+          <img src="logo.svg" alt="Makaria">
+
+          <div>
+            <strong>MAKARIA</strong>
+
+            <small>
+              onde prosperidade encontra plenitude.
+            </small>
+          </div>
+
+        </div>
+
+        <button
+          type="button"
+          id="closeMenuButton"
+          class="icon-button"
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <nav class="menu-navigation">
+
+        <button
+          type="button"
+          data-screen="home"
+          class="menu-item active"
+        >
+          <span>⌂</span>
+          <span>Início</span>
+        </button>
+
+        <button
+          type="button"
+          data-screen="transactions"
+          class="menu-item"
+        >
+          <span>↕</span>
+          <span>Lançamentos</span>
+        </button>
+
+        <button
+          type="button"
+          data-screen="goals"
+          class="menu-item"
+        >
+          <span>☆</span>
+          <span>Metas</span>
+        </button>
+
+        <button
+          type="button"
+          data-screen="profile"
+          class="menu-item"
+        >
+          <span>♙</span>
+          <span>Perfil</span>
+        </button>
+
+      </nav>
+
+      <div class="menu-footer">
+
+        <button
+          type="button"
+          id="logoutButton"
+          class="logout-button"
+        >
+          Sair da conta
+        </button>
+
+      </div>
+
+    </aside>
+
+
+    <div id="menuOverlay" class="menu-overlay"></div>
+
+
+    <!-- =========================
+         CONTEÚDO
+    ========================== -->
+
+    <main id="mainContent" class="main-content">
+
+
+      <!-- INÍCIO -->
+
+      <section
+        id="homeScreen"
+        class="app-page active-page"
+      >
+
+        <div class="page-header">
+
+          <div>
+
+            <span class="eyebrow">
+              PLANEJAMENTO FINANCEIRO
+            </span>
+
+            <h1 id="welcomeTitle">
+              Olá.
+            </h1>
+
+            <p>
+              Tenha clareza sobre cada decisão.
+            </p>
+
+          </div>
+
+          <div id="currentMonth" class="month-badge">
+            novembro de 2026
+          </div>
+
+        </div>
+
+
+        <!-- SALDO -->
+
+        <section class="hero-balance">
+
+          <span>
+            Patrimônio disponível estimado
+          </span>
+
+          <strong id="homeBalance">
+            R$ 0,00
+          </strong>
+
+          <small>
+            salário líquido de referência:
+            <span id="homeSalaryReference">
+              R$ 0,00
+            </span>
+          </small>
+
+        </section>
+
+
+        <!-- CARDS RESUMO -->
+
+        <div class="summary-grid">
+
+          <div class="summary-card">
+
+            <span>Receitas</span>
+
+            <strong id="homeIncome">
+              R$ 0,00
+            </strong>
+
+          </div>
+
+          <div class="summary-card">
+
+            <span>Despesas</span>
+
+            <strong id="homeExpense">
+              R$ 0,00
+            </strong>
+
+          </div>
+
+          <div class="summary-card">
+
+            <span>Investimentos</span>
+
+            <strong id="homeInvestment">
+              R$ 0,00
+            </strong>
+
+          </div>
+
+          <div class="summary-card">
+
+            <span>Metas</span>
+
+            <strong id="homeGoals">
+              0
+            </strong>
+
+          </div>
+
+        </div>
+
+
+        <!-- VISÃO DO MÊS -->
+
+        <section class="section-block">
+
+          <div class="section-heading">
+
+            <h2>
+              Visão do mês
+            </h2>
+
+            <span id="monthLaunchCount">
+              0 lançamentos
+            </span>
+
+          </div>
+
+          <div class="month-overview-card">
+
+            <div class="progress-row">
+
+              <div class="progress-label">
+                <span>Receitas</span>
+                <strong id="monthIncomeValue">
+                  R$ 0,00
+                </strong>
+              </div>
+
+              <div class="progress-track">
+                <div
+                  id="monthIncomeBar"
+                  class="progress-fill income"
+                  style="width:0%"
+                ></div>
+              </div>
+
+            </div>
+
+
+            <div class="progress-row">
+
+              <div class="progress-label">
+                <span>Despesas</span>
+                <strong id="monthExpenseValue">
+                  R$ 0,00
+                </strong>
+              </div>
+
+              <div class="progress-track">
+                <div
+                  id="monthExpenseBar"
+                  class="progress-fill expense"
+                  style="width:0%"
+                ></div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- ÚLTIMOS LANÇAMENTOS -->
+
+        <section class="section-block">
+
+          <div class="section-heading">
+
+            <h2>
+              Últimos lançamentos
+            </h2>
+
+            <button
+              type="button"
+              data-screen="transactions"
+              class="text-button"
+            >
+              Ver todos
+            </button>
+
+          </div>
+
+          <div
+            id="recentTransactions"
+            class="transaction-list"
+          >
+            <div class="empty-state">
+              Ainda não há lançamentos neste mês.
+            </div>
+          </div>
+
+        </section>
+
+      </section>
+
+
+      <!-- LANÇAMENTOS -->
+
+      <section
+        id="transactionsScreen"
+        class="app-page"
+      >
+
+        <div class="page-header">
+
+          <div>
+
+            <span class="eyebrow">
+              MOVIMENTAÇÕES
+            </span>
+
+            <h1>
+              Lançamentos
+            </h1>
+
+            <p>
+              Registre e acompanhe cada movimento.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="toolbar">
+
+          <button
+            type="button"
+            id="addTransactionButton"
+            class="primary-button"
+          >
+            + Novo lançamento
+          </button>
+
+        </div>
+
+
+        <div
+          id="transactionFilters"
+          class="filter-row"
+        >
+
+          <button
+            type="button"
+            data-filter="all"
+            class="filter-button active"
+          >
+            Todos
+          </button>
+
+          <button
+            type="button"
+            data-filter="income"
+            class="filter-button"
+          >
+            Receitas
+          </button>
+
+          <button
+            type="button"
+            data-filter="expense"
+            class="filter-button"
+          >
+            Despesas
+          </button>
+
+          <button
+            type="button"
+            data-filter="investment"
+            class="filter-button"
+          >
+            Investimentos
+          </button>
+
+        </div>
+
+
+        <div
+          id="transactionsList"
+          class="transaction-list"
+        ></div>
+
+      </section>
+
+
+      <!-- METAS -->
+
+      <section
+        id="goalsScreen"
+        class="app-page"
+      >
+
+        <div class="page-header">
+
+          <div>
+
+            <span class="eyebrow">
+              OBJETIVOS
+            </span>
+
+            <h1>
+              Metas
+            </h1>
+
+            <p>
+              Transforme seus planos em progresso.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <button
+          type="button"
+          id="addGoalButton"
+          class="primary-button"
+        >
+          + Nova meta
+        </button>
+
+
+        <div
+          id="goalsList"
+          class="goals-list"
+        ></div>
+
+      </section>
+
+
+      <!-- PERFIL -->
+
+      <section
+        id="profileScreen"
+        class="app-page"
+      >
+
+        <div class="page-header">
+
+          <div>
+
+            <span class="eyebrow">
+              CONFIGURAÇÕES
+            </span>
+
+            <h1>
+              Perfil
+            </h1>
+
+            <p>
+              Configure sua vida financeira.
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <div class="profile-card">
+
+          <div class="profile-avatar">
+            M
+          </div>
+
+          <h2 id="profileName">
+            Mirela
+          </h2>
+
+          <p id="profileEmail">
+            —
+          </p>
+
+        </div>
+
+
+        <!-- SALÁRIO -->
+
+        <section class="settings-card">
+
+          <div class="settings-card-header">
+
+            <div>
+
+              <span class="eyebrow">
+                SALÁRIO
+              </span>
+
+              <h2>
+                Configuração salarial
+              </h2>
+
+            </div>
+
+          </div>
+
+
+          <div class="settings-grid">
+
+            <div class="setting-row">
+
+              <label for="grossSalaryInput">
+                Salário bruto
+              </label>
+
+              <input
+                id="grossSalaryInput"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="2759.74"
+              >
+
+            </div>
+
+
+            <div class="setting-row">
+
+              <label for="advancePercentInput">
+                Adiantamento (%)
+              </label>
+
+              <input
+                id="advancePercentInput"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                placeholder="40"
+              >
+
+            </div>
+
+
+            <div class="setting-row">
+
+              <label for="inssPercentInput">
+                INSS (%)
+              </label>
+
+              <input
+                id="inssPercentInput"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                placeholder="9"
+              >
+
+            </div>
+
+
+            <div class="setting-row">
+
+              <label for="assistentialPercentInput">
+                Assistencial (%)
+              </label>
+
+              <input
+                id="assistentialPercentInput"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                placeholder="2"
+              >
+
+            </div>
+
+
+            <div class="setting-row">
+
+              <label for="lifeInsuranceInput">
+                Seguro de vida
+              </label>
+
+              <input
+                id="lifeInsuranceInput"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="3.82"
+              >
+
+            </div>
+
+
+            <div class="setting-row">
+
+              <label for="negocialInput">
+                Negocial V.A.
+              </label>
+
+              <input
+                id="negocialInput"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="21"
+              >
+
+            </div>
+
+          </div>
+
+
+          <div class="salary-result">
+
+            <div>
+              <span>
+                Salário líquido
+              </span>
+
+              <strong id="profileNetSalary">
+                R$ 0,00
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Adiantamento
+              </span>
+
+              <strong id="profileAdvance">
+                R$ 0,00
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                Restante
+              </span>
+
+              <strong id="profileRemaining">
+                R$ 0,00
+              </strong>
+            </div>
+
+          </div>
+
+
+          <button
+            type="button"
+            id="saveSalaryButton"
+            class="primary-button"
+          >
+            Salvar configuração salarial
+          </button>
+
+        </section>
+
+
+        <!-- SEGURANÇA -->
+
+        <section class="settings-card">
+
+          <div class="settings-card-header">
+
+            <div>
+
+              <span class="eyebrow">
+                SEGURANÇA
+              </span>
+
+              <h2>
+                Proteção
+              </h2>
+
+            </div>
+
+          </div>
+
+
+          <div class="settings-action-row">
+
+            <div>
+
+              <strong>
+                PIN local
+              </strong>
+
+              <small>
+                Proteja o acesso ao aplicativo.
+              </small>
+
+            </div>
+
+            <button
+              type="button"
+              id="configurePinButton"
+              class="secondary-button"
+            >
+              Configurar
+            </button>
+
+          </div>
+
+
+          <div class="settings-action-row">
+
+            <div>
+
+              <strong>
+                Bloqueio automático
+              </strong>
+
+              <small>
+                Bloqueie o aplicativo ao sair.
+              </small>
+
+            </div>
+
+            <button
+              type="button"
+              id="autoLockButton"
+              class="secondary-button"
+            >
+              Bloquear
+            </button>
+
+          </div>
+
+        </section>
+
+
+        <button
+          type="button"
+          id="profileLogoutButton"
+          class="logout-button"
+        >
+          Sair da conta
+        </button>
+
+      </section>
+
+    </main>
+
+
+    <!-- =========================
+         BOTÃO FLUTUANTE
+    ========================== -->
+
+    <button
+      type="button"
+      id="floatingAddButton"
+      class="floating-button"
+      aria-label="Adicionar"
+    >
+      +
+    </button>
+
+
+    <!-- =========================
+         NAVEGAÇÃO MOBILE
+    ========================== -->
+
+    <nav class="bottom-navigation">
+
+      <button
+        type="button"
+        data-screen="home"
+        class="bottom-nav-item active"
+      >
+        <span>⌂</span>
+        <small>Início</small>
+      </button>
+
+      <button
+        type="button"
+        data-screen="transactions"
+        class="bottom-nav-item"
+      >
+        <span>↕</span>
+        <small>Lançamentos</small>
+      </button>
+
+      <button
+        type="button"
+        data-screen="goals"
+        class="bottom-nav-item"
+      >
+        <span>☆</span>
+        <small>Metas</small>
+      </button>
+
+      <button
+        type="button"
+        data-screen="profile"
+        class="bottom-nav-item"
+      >
+        <span>♙</span>
+        <small>Perfil</small>
+      </button>
+
+    </nav>
+
+  </div>
+
+
+  <!-- =========================
+       MODAL GENÉRICO
+  ========================== -->
+
+  <div
+    id="modalOverlay"
+    class="modal-overlay hidden"
+  >
+
+    <div
+      id="modalContent"
+      class="modal-content"
+    ></div>
+
+  </div>
+
+
+  <!-- =========================
+       TOAST
+  ========================== -->
+
+  <div
+    id="toast"
+    class="toast"
+  ></div>
+
+
+  <!-- =========================
+       APP
+  ========================== -->
+
+  <script src="app.js?v=20261119"></script>
+
+</body>
+</html>
